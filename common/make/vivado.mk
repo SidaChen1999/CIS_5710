@@ -50,9 +50,10 @@ vivadoCheck:
 	@which xsim || (echo 'ERROR: cannot find `xsim` program' && exit 1)
 	@which bootgen || (echo 'ERROR: cannot find `bootgen` program' && exit 1)
 
+# /home1/c/cis5710/tools/yosys -p "check; hierarchy -check; flatten; check -assert" $^ | tee check.log
 check: $(SYNTH_SOURCES)
 	@echo -e "Writing check output to check.log..."
-	/home1/c/cis5710/tools/yosys -p "check; hierarchy -check; flatten; check -assert" $^ | tee check.log
+	F:/oss-cad-suite/bin/yosys -p "check; hierarchy -check; flatten; check -assert" $^ | tee check.log
 
 # run synthesis to identify code errors/warnings
 synth: vivadoCheck setup-files $(SYNTH_SOURCES)

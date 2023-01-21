@@ -34,3 +34,5 @@ sim.wdb
 .top-level-module
 .top-level-testbench
 .top-synth-module
+
+output
