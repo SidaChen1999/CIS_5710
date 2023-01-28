@@ -53,7 +53,7 @@ vivadoCheck:
 # /home1/c/cis5710/tools/yosys -p "check; hierarchy -check; flatten; check -assert" $^ | tee check.log
 check: $(SYNTH_SOURCES)
 	@echo -e "Writing check output to check.log..."
-	F:/oss-cad-suite/bin/yosys -p "check; hierarchy -check; flatten; check -assert" $^ | tee check.log
+	/home1/c/cis5710/tools/yosys -p "check; hierarchy -check; flatten; check -assert" $^ | tee check.log
 
 # run synthesis to identify code errors/warnings
 synth: vivadoCheck setup-files $(SYNTH_SOURCES)
