@@ -107,7 +107,7 @@ module gpn
   assign gout = gout_sum[N-1];
 
   wire [N-1:0] cout_inter [N-1:0][N-2:0];
-  for (k = 0; k < N-1; k = k+1) begin
+  for (k = 0; k < N-1; k = k+1) begin // not k < N-2
     for (i = k+1; i >= 0; i = i-1) begin
       if (i == k+1) assign cout_inter[i][k][i] = cin;
       else assign cout_inter[i][k][i] = gin[k-i];
