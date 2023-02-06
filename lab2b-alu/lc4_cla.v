@@ -66,10 +66,10 @@ module cla16
   end
   genvar j;
   for (j = 0; j < 4; j = j+1) begin
-    gp4 d3(.gin(g[3+4*j:4*j]), .pin(p[3+4*j:4*j]), .cin(c[j*4]), 
+    gpn #(4) d3(.gin(g[3+4*j:4*j]), .pin(p[3+4*j:4*j]), .cin(c[j*4]), 
            .gout(g_inter[j]), .pout(p_inter[j]), .cout(c[3+j*4:1+j*4]));
   end
-  gp4 d5(.gin(g_inter), .pin(p_inter), .cin(c[0]), 
+  gpn #(4) d5(.gin(g_inter), .pin(p_inter), .cin(c[0]), 
            .gout(g15), .pout(p15), .cout({c[12], c[8], c[4]})); // c[2:0], MSB at left
   assign sum = c ^ sum_inter;
 
@@ -89,31 +89,40 @@ module gpn
 
   assign pout = & pin;
 
-  // wire [N-1:0] gout_out;
-  wire [N-1:0] gout_inter [N-1:0];
-  wire [N-1:0] cout_inter [N-1:0];
   genvar i;
   genvar j;
   genvar k;
+  wire [N-1:0] gout_inter [N-1:0];
   for (i = N-1; i >= 0; i = i-1) begin
       assign gout_inter[i][i] = gin[N-1-i];
       for (j = i-1; j >= 0; j = j-1) begin
         assign gout_inter[i][j] = gout_inter[i][j+1] & pin[j+N-i];
-
     end
   end
-  assign gout = | gout_inter[0];
+  wire [N-1:0] gout_sum;
+  assign gout_sum[0] = gout_inter[0][0];
+  for (i = 1; i < N; i = i+1) begin
+    assign gout_sum[i] = gout_sum[i-1] | gout_inter[i][0];
+  end
+  assign gout = gout_sum[N-1];
 
+  wire [N-1:0] cout_inter [N-1:0][N-2:0];
   for (k = 0; k < N-1; k = k+1) begin
-    for (i = N-1; i >= 0; i = i-1) begin
-      if (i == k) assign cout_inter[i][i] = cin;
-      else assign cout_inter[i][i] = gin[N-1-i];
+    for (i = k+1; i >= 0; i = i-1) begin
+      if (i == k+1) assign cout_inter[i][k][i] = cin;
+      else assign cout_inter[i][k][i] = gin[k-i];
       for (j = i-1; j >= 0; j = j-1) begin
-        assign cout_inter[i][j] = cout_inter[i][j+1] & pin[j+N-i];
-
+        assign cout_inter[i][k][j] = cout_inter[i][k][j+1] & pin[j+k-i+1];
       end
     end
-    assign cout[k] = | cout_inter[0];
   end
- 
+  wire [N-1:0] cout_sum [N-2:0];
+  for (k = 0; k < N-1; k = k+1) begin
+    assign cout_sum[k][0] = cout_inter[0][k][0];
+    for (i = 1; i < k+2; i = i+1) begin
+      assign cout_sum[k][i] = cout_sum[k][i-1] | cout_inter[i][k][0];
+    end
+    assign cout[k] = cout_sum[k][k+1];
+  end
+
 endmodule
