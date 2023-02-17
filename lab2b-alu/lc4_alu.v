@@ -82,11 +82,16 @@ module lc4_alu(input  wire [15:0] i_insn,
 
         assign output_temp[9] = {{7{i_insn[8]}}, i_insn[8:0]};
 
-        wire signed [15:0] s_r1 = i_r1data;
-        wire [15:0] SRA = s_r1 >>> i_insn[3:0];
-        assign output_temp[10] = (i_insn[5:4] == 2'b00) ? s_r1 << i_insn[3:0] :
+        wire [15:0] SRA = $signed(i_r1data) >>> i_insn[3:0];
+        /*
+        assign test = (condition) ? (some signed wire) >>> (some number) : some unsigned number, 
+        it wont carry the one. This is because the else statement is unsigned and I believe it 
+        converts the first statement to an unsigned wire. 
+        You can fix this by calculating the signed number before and using $signed() when creating it.
+        */
+        assign output_temp[10] = (i_insn[5:4] == 2'b00) ? i_r1data << i_insn[3:0] :
                                  (i_insn[5:4] == 2'b01) ? SRA :
-                                 (i_insn[5:4] == 2'b10) ? s_r1 >> i_insn[3:0] : remainder;
+                                 (i_insn[5:4] == 2'b10) ? i_r1data >> i_insn[3:0] : remainder;
 
         assign output_temp[11] = 16'h0000;
 

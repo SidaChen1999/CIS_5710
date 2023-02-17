@@ -1,5 +1,6 @@
 /* TODO: name and PennKeys of all group members here
- *
+ * Sida Chen, chensida
+ * Jingyi Chen, cjychen
  * lc4_single.v
  * Implements a single-cycle data path
  *
@@ -68,6 +69,87 @@ module lc4_processor
     * TODO: INSERT YOUR CODE HERE *
     *******************************/
 
+   // ====================== module instantiation ==========================//
+   wire [2:0] NZP;
+   wire [2:0] last_NZP;
+   Nbit_reg #(3, 3'b000) nzp_reg (.in(NZP), .out(last_NZP), .clk(clk), .we(nzp_we), .gwe(gwe), .rst(rst));
+
+   wire [2:0] r1sel;
+   wire [2:0] r2sel;
+   wire [2:0] wsel;
+   wire r1re, r2re, regfile_we, nzp_we, select_pc_plus_one, is_load, is_store, is_branch, is_control_insn;
+   lc4_decoder decoder (
+      .insn(i_cur_insn),                        // instruction
+      .r1sel(r1sel),                            // rs
+      .r1re(r1re),                              // does this instruction read from rs?
+      .r2sel(r2sel),                            // rt
+      .r2re(r2re),                              // does this instruction read from rt?
+      .wsel(wsel),                              // rd
+      .regfile_we(regfile_we),                  // does this instruction write to rd?
+      .nzp_we(nzp_we),                          // does this instruction write the NZP bits?
+      .select_pc_plus_one(select_pc_plus_one),  // write PC+1 to the regfile?
+      .is_load(is_load),                        // is this a load instruction?
+      .is_store(is_store),                      // is this a store instruction?
+      .is_branch(is_branch),                    // is this a branch instruction?
+      .is_control_insn(is_control_insn)         // is this a control instruction (JSR, JSRR, RTI, JMPR, JMP, TRAP)?
+   );
+
+   wire [15:0] rs_data;
+   wire [15:0] rt_data;
+   wire [15:0] rd_data;
+   lc4_regfile regfile (
+      .clk(clk),
+      .gwe(gwe),
+      .rst(rst),
+      .i_rs(r1sel),        // rs selector
+      .o_rs_data(rs_data), // rs contents
+      .i_rt(r2sel),        // rt selector
+      .o_rt_data(rt_data), // rt contents
+      .i_rd(wsel),         // rd selector
+      .i_wdata(rd_data),   // data to write
+      .i_rd_we(regfile_we) // write enable
+   );
+
+   wire [15:0] o_result;
+   lc4_alu alu(
+      .i_insn(i_cur_insn),
+      .i_pc(pc),
+      .i_r1data(rs_data),
+      .i_r2data(rt_data),
+      .o_result(o_result)
+   );
+
+   wire [15:0] pc_plus_one;
+   cla16 adder (.a(pc), .b(16'b1), .cin(1'b0), .sum(pc_plus_one));
+
+   // ====================== ALU ==========================//
+   wire [15:0] rd_inter = is_load ? i_cur_dmem_data : o_result;
+   assign rd_data = select_pc_plus_one ? pc_plus_one : rd_inter;
+
+   // ====================== BR ==========================//
+   assign NZP =   (rd_data[15] == 1'b1) ? 3'b100 :
+                  (| rd_data) ? 3'b001 : 3'b10 ;
+   wire if_NZP = |(i_cur_insn[11:9] & last_NZP);
+   wire [15:0] if_branch_pc = (if_NZP & is_branch) ? o_result : pc_plus_one;
+   assign next_pc = is_control_insn ? o_result : if_branch_pc;
+   
+   // ====================== Testbench signals ==========================//
+   assign test_cur_pc = pc;
+   assign test_cur_insn = i_cur_insn;
+   assign test_regfile_we = regfile_we;
+   assign test_regfile_wsel = wsel;
+   assign test_regfile_data = rd_data;
+   assign test_nzp_we = nzp_we;
+   assign test_nzp_new_bits = NZP;
+   assign test_dmem_we = is_store;
+   assign test_dmem_addr = o_dmem_addr;
+   assign test_dmem_data = is_load ? i_cur_dmem_data : o_dmem_towrite;
+
+   // ====================== Output signals ==========================//
+   assign o_cur_pc = pc;
+   assign o_dmem_addr = (is_load | is_store) ? o_result : 0;     
+   assign o_dmem_we = is_store;
+   assign o_dmem_towrite = (is_load | is_store) ? rt_data : 16'b0;
 
 
    /* Add $display(...) calls in the always block below to
@@ -87,6 +169,7 @@ module lc4_processor
 `ifndef NDEBUG
    always @(posedge gwe) begin
       // $display("%d %h %h %h %h %h", $time, f_pc, d_pc, e_pc, m_pc, test_cur_pc);
+      // $display("%d %h %h %h %h %h", $time, pc, test_dmem_addr, test_dmem_data, NZP, rd_data);
       // if (o_dmem_we)
       //   $display("%d STORE %h <= %h", $time, o_dmem_addr, o_dmem_towrite);
 

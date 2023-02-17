@@ -1,6 +1,7 @@
 /* TODO: Names of all group members
  * TODO: PennKeys of all group members
- *
+ * Sida Chen, chensida
+ * Jingyi Chen, cjychen
  * lc4_regfile.v
  * Implements an 8-register register file parameterized on word size.
  *
