@@ -130,8 +130,7 @@ module lc4_processor
    assign NZP =   (rd_data[15] == 1'b1) ? 3'b100 :
                   (| rd_data) ? 3'b001 : 3'b10 ;
    wire if_NZP = |(i_cur_insn[11:9] & last_NZP);
-   wire [15:0] if_branch_pc = (if_NZP & is_branch) ? o_result : pc_plus_one;
-   assign next_pc = is_control_insn ? o_result : if_branch_pc;
+   assign next_pc = (if_NZP & is_branch || is_control_insn) ? o_result : pc_plus_one;
    
    // ====================== Testbench signals ==========================//
    assign test_cur_pc = pc;
