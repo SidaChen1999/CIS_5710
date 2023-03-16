@@ -109,13 +109,14 @@ module lc4_processor
       .o_rt_data(D_rt_data), // rt contents
       .i_rd(W_wsel),         // rd selector
       .i_wdata(D_rd_data),   // data to write
-      .i_rd_we(D_regfile_we) // write enable
+      .i_rd_we(W_regfile_we) // write enable
    );
 
 
    // WD bypass
-   assign X_r1data_in = (W_wsel == D_r1sel) ? D_rd_data : D_rs_data;
-   assign X_r2data_in = (W_wsel == D_r2sel) ? D_rd_data : D_rt_data;
+   assign X_r1data_in = (W_wsel == D_r1sel && W_regfile_we) ? D_rd_data : D_rs_data;
+   assign X_r2data_in = (W_wsel == D_r2sel && W_regfile_we) ? D_rd_data : D_rt_data;
+   
 
 
    //========================================= X ============================================// 
@@ -262,17 +263,15 @@ module lc4_processor
    // =============== RD data ==================//
 
    assign D_rd_data = W_is_load ? W_D_out : W_O_out;
-                     //  W_select_pc_plus_one ? M_pc_out: ;
 
    //============== WX & MX  Bypass ============//   
    wire [1:0]r1_Bypass;
    wire [1:0]r2_Bypass;
-   assign r1_Bypass = (X_r1sel == M_wsel) ? 2'd0 :
-                        (X_r1sel == W_wsel) ? 2'd1 : 2'd2 ;
-                        // ((X_r1sel == W_wsel) || (W_regfile_we && D_r1re && (W_wsel == D_r1sel))) ? 2'd1 : 2'd2 ;
-   assign r2_Bypass = (X_r2sel == M_wsel) ? 2'd0 :
-                        (X_r2sel == W_wsel) ? 2'd1 : 2'd2 ;
-                        // ((X_r2sel == W_wsel) || (W_regfile_we && D_r2re && (W_wsel == D_r2sel))) ? 2'd1 : 2'd2 ;
+   assign r1_Bypass = (X_r1sel == M_wsel && M_regfile_we) ? 2'd0 :
+                        (X_r1sel == W_wsel && W_regfile_we) ? 2'd1 : 2'd2 ;
+
+   assign r2_Bypass = (X_r2sel == M_wsel && M_regfile_we) ? 2'd0 :
+                        (X_r2sel == W_wsel && W_regfile_we) ? 2'd1 : 2'd2 ;
 
 
    assign X_r1_ALUin = (r1_Bypass == 2'd0) ? M_O_out :
@@ -335,7 +334,7 @@ module lc4_processor
       // $display("%d %h %h %h %h %h", $time, f_pc, d_pc, e_pc, m_pc, test_cur_pc);
       // if (o_dmem_we)
       //   $display("%d STORE %h <= %h", $time, o_dmem_addr, o_dmem_towrite);
-      pinstr(W_ir_out);
+      // pinstr(W_ir_out);
       // Start each $display() format string with a %d argument for time
       // it will make the output easier to read.  Use %b, %h, and %d
       // for binary, hex, and decimal output of additional variables.
@@ -374,7 +373,7 @@ module lc4_processor
       // The Objects pane will update to display the wires
       // in that module.
 
-      $display(); 
+      // $display(); 
    end
 `endif
 endmodule
