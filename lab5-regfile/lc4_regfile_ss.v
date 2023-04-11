@@ -41,4 +41,71 @@ module lc4_regfile_ss #(parameter n = 16)
 
    /*** TODO: Your Code Here ***/
 
+   wire [n-1:0] i_wdata [7:0];
+   wire [n-1:0] reg_out [7:0];
+   wire [n-1:0] rs_data_A;
+   wire [n-1:0] rt_data_A;
+   wire [n-1:0] rs_data_B;
+   wire [n-1:0] rt_data_B;
+
+   genvar i;
+   for (i = 0; i < 8; i = i+1) begin
+      assign i_wdata[i] = (i_rd_B == i & i_rd_we_B) ? i_wdata_B : i_wdata_A ;
+      wire we = i_rd_we_A & (i_rd_A == i) | i_rd_we_B & (i_rd_B == i) ;
+      Nbit_reg #(n, 0) single_reg(.in(i_wdata[i]),
+                                    .out(reg_out[i]),
+                                    .clk(clk),
+                                    .we(we),
+                                    .gwe(gwe),
+                                    .rst(rst)
+                                    );
+
+   
+   end
+
+   assign rs_data_A = (i_rs_A == 0) ? reg_out[0] : 
+                      (i_rs_A == 1) ? reg_out[1] : 
+                      (i_rs_A == 2) ? reg_out[2] : 
+                      (i_rs_A == 3) ? reg_out[3] : 
+                      (i_rs_A == 4) ? reg_out[4] : 
+                      (i_rs_A == 5) ? reg_out[5] : 
+                      (i_rs_A == 6) ? reg_out[6] : reg_out[7] ;
+
+   assign rt_data_A = (i_rt_A == 0) ? reg_out[0] : 
+                      (i_rt_A == 1) ? reg_out[1] : 
+                      (i_rt_A == 2) ? reg_out[2] : 
+                      (i_rt_A == 3) ? reg_out[3] : 
+                      (i_rt_A == 4) ? reg_out[4] : 
+                      (i_rt_A == 5) ? reg_out[5] : 
+                      (i_rt_A == 6) ? reg_out[6] : reg_out[7] ;
+
+   assign rs_data_B = (i_rs_B == 0) ? reg_out[0] : 
+                      (i_rs_B == 1) ? reg_out[1] : 
+                      (i_rs_B == 2) ? reg_out[2] : 
+                      (i_rs_B == 3) ? reg_out[3] : 
+                      (i_rs_B == 4) ? reg_out[4] : 
+                      (i_rs_B == 5) ? reg_out[5] : 
+                      (i_rs_B == 6) ? reg_out[6] : reg_out[7] ;
+
+   assign rt_data_B = (i_rt_B == 0) ? reg_out[0] : 
+                      (i_rt_B == 1) ? reg_out[1] : 
+                      (i_rt_B == 2) ? reg_out[2] : 
+                      (i_rt_B == 3) ? reg_out[3] : 
+                      (i_rt_B == 4) ? reg_out[4] : 
+                      (i_rt_B == 5) ? reg_out[5] : 
+                      (i_rt_B == 6) ? reg_out[6] : reg_out[7] ;                 
+
+   assign o_rs_data_A = (i_rd_we_B == 1 && i_rd_B == i_rs_A) ? i_wdata_B : 
+                        (i_rd_we_A == 1 && i_rd_A == i_rs_A) ? i_wdata_A : rs_data_A; 
+
+   assign o_rt_data_A = (i_rd_we_B == 1 && i_rd_B == i_rt_A) ? i_wdata_B : 
+                        (i_rd_we_A == 1 && i_rd_A == i_rt_A) ? i_wdata_A : rt_data_A; 
+
+   assign o_rs_data_B = (i_rd_we_B == 1 && i_rd_B == i_rs_B) ? i_wdata_B : 
+                        (i_rd_we_A == 1 && i_rd_A == i_rs_B) ? i_wdata_A : rs_data_B; 
+
+   assign o_rt_data_B = (i_rd_we_B == 1 && i_rd_B == i_rt_B) ? i_wdata_B : 
+                        (i_rd_we_A == 1 && i_rd_A == i_rt_B) ? i_wdata_A : rt_data_B;
+
+
 endmodule

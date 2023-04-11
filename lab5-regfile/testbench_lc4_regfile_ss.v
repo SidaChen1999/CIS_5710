@@ -78,6 +78,11 @@ module test_regfile;
    always #5 clk <= ~clk;
    
    initial begin
+
+      if (1'b1) begin
+         $dumpfile("reg.vcd");
+         $dumpvars;
+      end
       
       // Initialize Inputs
       rs_A = 0;
@@ -155,7 +160,12 @@ module test_regfile;
             errors = errors + 1;
          end
          
-         #2;         
+         #2; 
+
+      if (errors > 0) begin
+            $display("Exiting after first error..."); 
+            $finish;
+         end        
          
       end // end while
       
