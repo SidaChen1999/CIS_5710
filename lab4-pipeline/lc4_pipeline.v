@@ -219,7 +219,7 @@ module lc4_processor
 
    assign r2_Bypass = (X_r2sel == M_wsel && M_regfile_we) ? 2'd0 :
                       (X_r2sel == W_wsel && W_regfile_we) ? 2'd1 : 2'd2;
-flus
+
    assign X_r1_ALUin = (r1_Bypass == 2'd0) ? M_O_out :
                        (r1_Bypass == 2'd1) ? W_rd_data : X_r1data_out;
    assign X_r2_ALUin = (r2_Bypass == 2'd0) ? M_O_out :

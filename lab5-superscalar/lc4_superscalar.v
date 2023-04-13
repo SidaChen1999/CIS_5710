@@ -61,8 +61,8 @@ module lc4_processor(input wire         clk,             // main clock
   
 
    // Program counter register, starts at 8200h at bootup 
-   cla16 adder_A (.a(F_pc_out), .b(16'd1), .cin(1'b0), .sum(pc_plus_one)); // pc_B = pc_A + 1
-   cla16 adder_B (.a(F_pc_out), .b(16'd2), .cin(1'b0), .sum(pc_plus_two));
+   cla16 adder_A (.a(F_pc_out), .b(16'h0001), .cin(1'b0), .sum(pc_plus_one)); // pc_B = pc_A + 1
+   cla16 adder_B (.a(F_pc_out), .b(16'h0002), .cin(1'b0), .sum(pc_plus_two));
 
    //========================================= D ============================================// 
    wire [15:0] D_pc_out_A;
@@ -79,8 +79,8 @@ module lc4_processor(input wire         clk,             // main clock
 
    assign D_ir_in_A = Switch ? D_ir_out_B : i_cur_insn_A;
    assign D_ir_in_B = Switch ? i_cur_insn_A : i_cur_insn_B;
-   wire [15:0] D_pc_in_B = Switch ? F_pc_out : pc_plus_one;
    wire [15:0] D_pc_in_A = Switch ? pc_plus_one : F_pc_out;
+   wire [15:0] D_pc_in_B = Switch ? F_pc_out : pc_plus_one;
    
 
    Nbit_reg #(16, 0) D_pc_reg_A (.in(D_pc_in_A), .out(D_pc_out_A), .clk(clk), .we(D_we_A), .gwe(gwe), .rst(rst));
@@ -181,7 +181,7 @@ module lc4_processor(input wire         clk,             // main clock
                   // ||  X_is_load_B && ((D_r1sel_B == X_wsel_B && D_r1re_B) || ((D_r2sel_B == X_wsel_B) && !D_is_store_B && D_r2re_B) || D_is_branch_B);             
    
    // 3. Dependence from D.A to D.B (including the case where D.A is a load) // ????
-   wire AB_dep = (D_r1sel_A == D_r1sel_B) || (D_r2sel_A == D_r2sel_B);
+   wire AB_dep = (D_wsel_A == D_r1sel_B && D_regfile_we_A && D_r1re_B) || (D_wsel_A == D_r2sel_B && D_regfile_we_A && D_r2re_B);
 
    // 4. Structural hazard (both D.A and D.B access memory)
    wire struc_haz = D_is_load_A && D_is_load_B && D_is_store_A && D_is_store_B;
@@ -543,6 +543,12 @@ module lc4_processor(input wire         clk,             // main clock
     * to conditionally print out information.
     */
    always @(posedge gwe) begin
+      $write("PC_A: %h;   ", D_pc_out_A);
+      pinstr(D_ir_out_A);
+      $display();
+      $write("PC_B: %h;   ", D_pc_out_B);
+      pinstr(D_ir_out_B);
+      $display();
       // $display("%d %h %h %h %h %h", $time, f_pc, d_pc, e_pc, m_pc, test_cur_pc);
       // if (o_dmem_we)
       //   $display("%d STORE %h <= %h", $time, o_dmem_addr, o_dmem_towrite);
