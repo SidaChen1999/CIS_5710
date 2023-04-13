@@ -53,13 +53,12 @@ module lc4_processor(input wire         clk,             // main clock
    wire [15:0] F_pc_in = Switch ? pc_plus_one : pc_plus_two;    // Next program counter (you compute this and feed it into next_pc) 
    wire [15:0] pc_plus_one; 
    wire [15:0] pc_plus_two;
-   wire pc_we = 1'b1;  ///////////////////////////////////////////////////
+   wire pc_we = !LTU_A && !LTU_B;  ///////////////////////////////////////////////////
 
    Nbit_reg #(16, 16'h8200) pc_reg_A (.in(F_pc_in), .out(F_pc_out), .clk(clk), .we(pc_we), .gwe(gwe), .rst(rst));
 
    assign o_cur_pc = F_pc_out;
   
-
    // Program counter register, starts at 8200h at bootup 
    cla16 adder_A (.a(F_pc_out), .b(16'h1), .cin(1'b0), .sum(pc_plus_one)); // pc_B = pc_A + 1
    cla16 adder_B (.a(F_pc_out), .b(16'h2), .cin(1'b0), .sum(pc_plus_two));
@@ -79,7 +78,7 @@ module lc4_processor(input wire         clk,             // main clock
 
    assign D_ir_in_A = Switch ? D_ir_out_B : i_cur_insn_A;
    assign D_ir_in_B = Switch ? i_cur_insn_A : i_cur_insn_B;
-   wire [15:0] D_pc_in_A = Switch ? pc_plus_one : F_pc_out;
+   wire [15:0] D_pc_in_A = Switch ? D_pc_out_B : F_pc_out;
    wire [15:0] D_pc_in_B = Switch ? F_pc_out : pc_plus_one;
    
 
@@ -168,20 +167,28 @@ module lc4_processor(input wire         clk,             // main clock
       .i_rd_we_B(W_regfile_we_B) // pipe B: write enable
    );
 
+   assign X_r1data_in_A = D_rs_data_A;
+   assign X_r2data_in_A = D_rt_data_A;
+
+   assign X_r1data_in_B = D_rs_data_B;
+   assign X_r2data_in_B = D_rt_data_B;
+
+
    // ============== Dependencies =================//
    
    // 1. LTU dependence with dest = D.A     from X.A to D.A or from X.B to D.A
    wire LTU_A = 1'b0;
-   // X_is_load_A && ((D_r1sel_A == X_wsel_A && D_r1re_A) || ((D_r2sel_A == X_wsel_A) && !D_is_store_A && D_r2re_A) || D_is_branch_A)
-                  // ||  X_is_load_B && ((D_r1sel_A == X_wsel_B && D_r1re_A) || ((D_r2sel_A == X_wsel_B) && !D_is_store_A && D_r2re_A) || D_is_branch_A);  
+   //wire LTU_A = X_is_load_A && ((D_r1sel_A == X_wsel_A && D_r1re_A) || ((D_r2sel_A == X_wsel_A) && !D_is_store_A && D_r2re_A) || D_is_branch_A)
+                  //|| X_is_load_B && ((D_r1sel_A == X_wsel_B && D_r1re_A) || ((D_r2sel_A == X_wsel_B) && !D_is_store_A && D_r2re_A) || D_is_branch_A);  
 
    // 2. LTU dependence with dest = D.B     from X.A to D.B or from X.B to D.B
    wire LTU_B = 1'b0;
-   // X_is_load_A && ((D_r1sel_B == X_wsel_A && D_r1re_B) || ((D_r2sel_B == X_wsel_A) && !D_is_store_B && D_r2re_B) || D_is_branch_B)
-                  // ||  X_is_load_B && ((D_r1sel_B == X_wsel_B && D_r1re_B) || ((D_r2sel_B == X_wsel_B) && !D_is_store_B && D_r2re_B) || D_is_branch_B);             
+   //  X_is_load_A && ((D_r1sel_B == X_wsel_A && D_r1re_B) || ((D_r2sel_B == X_wsel_A) && !D_is_store_B && D_r2re_B) || D_is_branch_B)
+   //                 ||  X_is_load_B && ((D_r1sel_B == X_wsel_B && D_r1re_B) || ((D_r2sel_B == X_wsel_B) && !D_is_store_B && D_r2re_B) || D_is_branch_B);             
    
    // 3. Dependence from D.A to D.B (including the case where D.A is a load) // ????
-   wire AB_dep = (D_wsel_A == D_r1sel_B && D_regfile_we_A && D_r1re_B) || (D_wsel_A == D_r2sel_B && D_regfile_we_A && D_r2re_B);
+   wire AB_dep = (D_wsel_A == D_r1sel_B && D_regfile_we_A && D_r1re_B) || 
+                  (D_wsel_A == D_r2sel_B && D_regfile_we_A && D_r2re_B);
 
    // 4. Structural hazard (both D.A and D.B access memory)
    wire struc_haz = D_is_load_A && D_is_load_B || D_is_load_A && D_is_store_B || 
@@ -191,10 +198,11 @@ module lc4_processor(input wire         clk,             // main clock
 
    //assign pc_we = !(LTU_A || LTU_B || AB_dep || struc_haz);// stall fetch when only stall B?
    assign D_we_A = !LTU_A; 
-   assign D_we_B = !(LTU_A || LTU_B || AB_dep || struc_haz); // pipe B stall
+   assign D_we_B = 1'b1; //
+   //assign D_we_B =  !(LTU_A || LTU_B && (!AB_dep) || struc_haz); // pipe B stall
    assign X_ir_in_A = LTU_A ? 16'b0 : flush ? 16'd0 : D_ir_out_A; //
-   assign X_ir_in_B = (LTU_A || LTU_B || AB_dep || struc_haz) ? 16'b0 : flush ? 16'd0 : D_ir_out_B; // flush not ok
-
+   //assign X_ir_in_B = (LTU_A || LTU_B && (!AB_dep) || struc_haz) ? 16'b0 : flush ? 16'd0 : D_ir_out_B; // flush not ok
+   assign X_ir_in_B = !D_we_B ? 16'b0 : flush ? 16'd0 : D_ir_out_B; // flush not ok
    // ============== Switch =================//
    // add switch logic to X input    for 5 reg
 
@@ -423,24 +431,24 @@ module lc4_processor(input wire         clk,             // main clock
 
    // pipe A: ALU in
    assign X_r1_ALUin_A = (X_r1sel_A == M_wsel_B && M_regfile_we_B) ? M_O_out_B :
+                       (X_r1sel_A == M_wsel_A && M_regfile_we_A) ? M_O_out_A :
                        (X_r1sel_A == W_wsel_B && W_regfile_we_B) ? W_rd_data_B :
-                       (X_r1sel_A == M_wsel_A && M_regfile_we_B) ? M_O_out_A :
                        (X_r1sel_A == W_wsel_A && W_regfile_we_A) ? W_rd_data_A : X_r1data_out_A;
 
    assign X_r2_ALUin_A = (X_r2sel_A == M_wsel_B && M_regfile_we_B) ? M_O_out_B :
+                       (X_r2sel_A == M_wsel_A && M_regfile_we_A) ? M_O_out_A :
                        (X_r2sel_A == W_wsel_B && W_regfile_we_B) ? W_rd_data_B :
-                       (X_r2sel_A == M_wsel_A && M_regfile_we_B) ? M_O_out_A :
                        (X_r2sel_A == W_wsel_A && W_regfile_we_A) ? W_rd_data_A : X_r2data_out_A;
 
    // pipe B: ALU in
    assign X_r1_ALUin_B = (X_r1sel_B == M_wsel_B && M_regfile_we_B) ? M_O_out_B :
+                       (X_r1sel_B == M_wsel_A && M_regfile_we_A) ? M_O_out_A :                          
                        (X_r1sel_B == W_wsel_B && W_regfile_we_B) ? W_rd_data_B :
-                       (X_r1sel_B == M_wsel_A && M_regfile_we_B) ? M_O_out_A :                          
                        (X_r1sel_B == W_wsel_A && W_regfile_we_A) ? W_rd_data_A : X_r1data_out_B;
 
    assign X_r2_ALUin_B = (X_r2sel_B == M_wsel_B && M_regfile_we_B) ? M_O_out_B :
+                       (X_r2sel_B == M_wsel_A && M_regfile_we_A) ? M_O_out_A :     
                        (X_r2sel_B == W_wsel_B && W_regfile_we_B) ? W_rd_data_B :
-                       (X_r2sel_B == M_wsel_A && M_regfile_we_B) ? M_O_out_A :     
                        (X_r2sel_B == W_wsel_A && W_regfile_we_A) ? W_rd_data_A : X_r2data_out_B;
 
 
@@ -503,7 +511,7 @@ module lc4_processor(input wire         clk,             // main clock
    wire [3:0] M_ss_out;
    wire [3:0] W_ss_out;
    
-   Nbit_reg #(4, 0) X_ss_reg (.in({LTU_A, LTU_B, AB_dep, struc_haz}), .out(X_ss_out), .clk(clk), .we(X_we), .gwe(gwe), .rst(rst));
+   Nbit_reg #(4, 0) X_ss_reg (.in({struc_haz, AB_dep, LTU_B, LTU_A}), .out(X_ss_out), .clk(clk), .we(X_we), .gwe(gwe), .rst(rst));
    Nbit_reg #(4, 0) M_ss_reg (.in(X_ss_out), .out(M_ss_out), .clk(clk), .we(M_we), .gwe(gwe), .rst(rst));
    Nbit_reg #(4, 0) W_ss_reg (.in(M_ss_out), .out(W_ss_out), .clk(clk), .we(W_we), .gwe(gwe), .rst(rst));
 
