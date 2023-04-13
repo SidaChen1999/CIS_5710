@@ -61,8 +61,8 @@ module lc4_processor(input wire         clk,             // main clock
   
 
    // Program counter register, starts at 8200h at bootup 
-   cla16 adder_A (.a(F_pc_out), .b(16'h0001), .cin(1'b0), .sum(pc_plus_one)); // pc_B = pc_A + 1
-   cla16 adder_B (.a(F_pc_out), .b(16'h0002), .cin(1'b0), .sum(pc_plus_two));
+   cla16 adder_A (.a(F_pc_out), .b(16'h1), .cin(1'b0), .sum(pc_plus_one)); // pc_B = pc_A + 1
+   cla16 adder_B (.a(F_pc_out), .b(16'h2), .cin(1'b0), .sum(pc_plus_two));
 
    //========================================= D ============================================// 
    wire [15:0] D_pc_out_A;
@@ -184,7 +184,8 @@ module lc4_processor(input wire         clk,             // main clock
    wire AB_dep = (D_wsel_A == D_r1sel_B && D_regfile_we_A && D_r1re_B) || (D_wsel_A == D_r2sel_B && D_regfile_we_A && D_r2re_B);
 
    // 4. Structural hazard (both D.A and D.B access memory)
-   wire struc_haz = D_is_load_A && D_is_load_B && D_is_store_A && D_is_store_B;
+   wire struc_haz = D_is_load_A && D_is_load_B || D_is_load_A && D_is_store_B || 
+                    D_is_store_A && D_is_load_B || D_is_store_A && D_is_store_B;
 
    // ================= Stall ======================//
 
@@ -497,9 +498,19 @@ module lc4_processor(input wire         clk,             // main clock
    wire [15:0] W_dmem_data_out;
    Nbit_reg #(16, 16'd0) dmem_data_reg (.in(o_dmem_towrite), .out(W_dmem_data_out), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
 
+   // ====================== Stall logic ==========================//
+   wire [3:0] X_ss_out;
+   wire [3:0] M_ss_out;
+   wire [3:0] W_ss_out;
+   
+   Nbit_reg #(4, 0) X_ss_reg (.in({LTU_A, LTU_B, AB_dep, struc_haz}), .out(X_ss_out), .clk(clk), .we(X_we), .gwe(gwe), .rst(rst));
+   Nbit_reg #(4, 0) M_ss_reg (.in(X_ss_out), .out(M_ss_out), .clk(clk), .we(M_we), .gwe(gwe), .rst(rst));
+   Nbit_reg #(4, 0) W_ss_reg (.in(M_ss_out), .out(W_ss_out), .clk(clk), .we(W_we), .gwe(gwe), .rst(rst));
+
    // ====================== Testbench signals ==========================//
-   assign test_stall_A = LTU_A ? 2'd3 : W_flush_out_A ? 2'd2 : 2'd0; // need to add 2: flush
-   assign test_stall_B = (LTU_A || AB_dep || struc_haz) ? 2'd1 : LTU_B ? 2'd3 : W_flush_out_B ? 2'd2 : 2'd0;
+   assign test_stall_A = W_ss_out[0] ? 2'd3 : W_flush_out_A ? 2'd2 : 2'd0; // need to add 2: flush
+   assign test_stall_B = (W_ss_out[0] || W_ss_out[2] || W_ss_out[3]) ? 2'd1 : W_ss_out[1] ? 2'd3 : 
+                         W_flush_out_B ? 2'd2 : 2'd0;
 
    assign test_cur_pc_A = W_pc_out_A;
    assign test_cur_pc_B = W_pc_out_B;
